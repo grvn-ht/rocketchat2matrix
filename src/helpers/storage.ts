@@ -25,12 +25,10 @@ export async function initStorage(): Promise<void> {
  * @returns One found IdMapping or null
  */
 export function getMapping(
-  rcId: string,
-  type: number
+  rcId: string
 ): Promise<IdMapping | null> {
   return AppDataSource.manager.findOneBy(IdMapping, {
     rcId: rcId,
-    type: type,
   })
 }
 
@@ -86,7 +84,7 @@ export async function save(entity: IdMapping | Membership): Promise<void> {
 export async function getAccessToken(
   rcId: string
 ): Promise<string | undefined> {
-  return (await getMapping(rcId, entities[Entity.Users].mappingType))
+  return (await getMapping(rcId))
     ?.accessToken
 }
 
@@ -130,7 +128,7 @@ export async function getMemberships(rcRoomId: string): Promise<string[]> {
  * @returns The user's Matrix ID or undefined
  */
 export async function getUserId(rcId: string): Promise<string | undefined> {
-  return (await getMapping(rcId, entities[Entity.Users].mappingType))?.matrixId
+  return (await getMapping(rcId))?.matrixId
 }
 
 /**
@@ -139,7 +137,7 @@ export async function getUserId(rcId: string): Promise<string | undefined> {
  * @returns The room's Matrix ID or undefined
  */
 export async function getRoomId(rcId: string): Promise<string | undefined> {
-  return (await getMapping(rcId, entities[Entity.Rooms].mappingType))?.matrixId
+  return (await getMapping(rcId))?.matrixId
 }
 
 /**
@@ -148,6 +146,24 @@ export async function getRoomId(rcId: string): Promise<string | undefined> {
  * @returns The message's Matrix ID or undefined
  */
 export async function getMessageId(rcId: string): Promise<string | undefined> {
-  return (await getMapping(rcId, entities[Entity.Messages].mappingType))
+  return (await getMapping(rcId))
     ?.matrixId
+}
+
+/**
+ * Returns all members of a given room
+ * @param rcRoomId The room ID to get all members of
+ * @returns An array of Rocket.Chat user IDs that are members of the room
+ */
+export async function getRoomsForMembers(rcUserId: string): Promise<string[]> {
+  return (
+    await AppDataSource.manager.find(Membership, {
+      select: {
+        rcRoomId: true,
+      },
+      where: {
+        rcUserId: rcUserId,
+      },
+    })
+  ).map((entity) => entity.rcRoomId)
 }

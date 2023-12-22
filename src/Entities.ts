@@ -2,6 +2,7 @@ export const enum Entity {
   Users = 'users',
   Rooms = 'rooms',
   Messages = 'messages',
+  DirectMessages = 'directmessages'
 }
 
 type EntityConfig = {
@@ -23,5 +24,9 @@ export const entities: {
   messages: {
     filename: 'rocketchat_message.json',
     mappingType: 2,
+  },
+  directmessages: {
+    filename: 'rocketchat_room.json',
+    mappingType: 3,
   },
 } as const

@@ -34,6 +34,7 @@ export const enum RcRoomTypes {
 export type RcRoom = {
   _id: string
   t: RcRoomTypes
+  usersCount: number
   uids?: string[]
   usernames?: string[]
   name?: string
@@ -91,6 +92,9 @@ export function mapRoom(rcRoom: RcRoom): MatrixRoom {
 
   switch (rcRoom.t) {
     case RcRoomTypes.direct:
+      if (rcRoom.usersCount == 1) {
+        rcRoom.u && (room.name = rcRoom.u.name)
+      }
       room.is_direct = true
       room.preset = MatrixRoomPresets.trusted
       break
@@ -275,7 +279,7 @@ export async function getFilteredMembers(
     await Promise.all(
       rcMemberIds
         .filter((rcMemberId) => rcMemberId != creatorId)
-        .map(async (rcMemberId) => await getMapping(rcMemberId, 0))
+        .map(async (rcMemberId) => await getMapping(rcMemberId))
     )
   ).filter((memberMapping): memberMapping is IdMapping => memberMapping != null)
   return memberMappings
@@ -288,13 +292,17 @@ export async function getFilteredMembers(
  */
 export async function createMapping(
   rcId: string,
-  matrixId: string
+  matrixId: string,
+  userCount: number,
 ): Promise<void> {
   const roomMapping = new IdMapping()
   roomMapping.rcId = rcId
   roomMapping.matrixId = matrixId
-  roomMapping.type = entities[Entity.Rooms].mappingType
-
+  if (userCount <= 2) {
+    roomMapping.type = entities[Entity.DirectMessages].mappingType
+  } else {
+    roomMapping.type = entities[Entity.Rooms].mappingType
+  }
   await save(roomMapping)
   log.debug('Mapping added:', roomMapping)
 }
@@ -445,6 +453,6 @@ export async function handle(rcRoom: RcRoom): Promise<void> {
     log.debug(`Mapping exists: ${rcRoom._id} -> ${matrixRoomId}`)
   } else {
     const matrixRoom = await createRoom(rcRoom)
-    await createMapping(rcRoom._id, matrixRoom.room_id!)
+    await createMapping(rcRoom._id, matrixRoom.room_id!, rcRoom.usersCount)
   }
 }

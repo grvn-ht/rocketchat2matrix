@@ -35,6 +35,7 @@ const roomCreator = {
 
 const rcDirectChat = {
   _id: 'aliceidbobid',
+  usersCount: 4,
   t: RcRoomTypes.direct,
   usernames: ['Alice', 'Bob'],
   uids: ['aliceid', 'bobid'],
@@ -42,6 +43,7 @@ const rcDirectChat = {
 
 const rcPublicRoom = {
   _id: 'randomRoomId',
+  usersCount: 4,
   fname: 'public',
   description: 'Public chat room',
   name: 'public',
@@ -51,6 +53,7 @@ const rcPublicRoom = {
 
 const rcPrivateRoom = {
   _id: 'privateRoomId',
+  usersCount: 2,
   name: 'private',
   fname: 'private',
   description: 'Private chat room',
@@ -105,7 +108,7 @@ test('mapping private rooms', () => {
 
 test('mapping live chats', () => {
   expect(() =>
-    mapRoom({ _id: 'liveChatId', t: RcRoomTypes.live })
+    mapRoom({ _id: 'liveChatId', usersCount: 2, t: RcRoomTypes.live })
   ).toThrowError(
     'Room with ID: liveChatId is a live chat. Migration not implemented'
   )
@@ -210,8 +213,8 @@ test('filtering members', async () => {
     }
   }
 
-  mockedStorage.getMapping.mockImplementation(async (rcId, type) =>
-    rcId.includes('excluded') || !rcId ? null : mockMapping(rcId, type)
+  mockedStorage.getMapping.mockImplementation(async (rcId) =>
+    rcId.includes('excluded') || !rcId ? null : mockMapping(rcId)
   )
 
   await expect(getFilteredMembers(members, members[0])).resolves.toStrictEqual([
@@ -219,21 +222,18 @@ test('filtering members', async () => {
     mockMapping('otherExistingUser'),
   ])
   expect(mockedStorage.getMapping).toBeCalledWith(
-    'existingUser',
-    entities[Entity.Users].mappingType
+    'existingUser'
   )
   expect(mockedStorage.getMapping).toBeCalledWith(
-    'otherExistingUser',
-    entities[Entity.Users].mappingType
+    'otherExistingUser'
   )
   expect(mockedStorage.getMapping).toBeCalledWith(
-    'excludedUser',
-    entities[Entity.Users].mappingType
+    'excludedUser'
   )
 })
 
 test('creating mapping', async () => {
-  await expect(createMapping(rcPublicRoom._id, room_id)).resolves.toBe(
+  await expect(createMapping(rcPublicRoom._id, room_id,rcPublicRoom.usersCount)).resolves.toBe(
     undefined
   )
   expect(mockedStorage.save).toHaveBeenCalledWith({

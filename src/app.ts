@@ -6,6 +6,7 @@ import 'reflect-metadata'
 import { Entity, entities } from './Entities'
 import { handle as handleMessage } from './handlers/messages'
 import { getFilteredMembers, handle as handleRoom } from './handlers/rooms'
+import { handle as handleDirectMessages } from './handlers/directmessages'
 import { handle as handleUser } from './handlers/users'
 import log from './helpers/logger'
 import {
@@ -118,6 +119,8 @@ async function main() {
     await loadRcExport(Entity.Users)
     log.info('Parsing rooms')
     await loadRcExport(Entity.Rooms)
+    log.info('Direct Messages to Peoples')
+    await handleDirectMessages()
     log.info('Parsing messages')
     await loadRcExport(Entity.Messages)
     log.info('Checking room memberships')

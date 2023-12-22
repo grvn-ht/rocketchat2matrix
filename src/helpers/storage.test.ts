@@ -34,10 +34,10 @@ test('create mapping', async () => {
 })
 
 test('get mapping', async () => {
-  await expect(getMapping(mapping.rcId, mapping.type)).resolves.toStrictEqual(
+  await expect(getMapping(mapping.rcId)).resolves.toStrictEqual(
     mapping
   )
-  await expect(getMapping('inexistent', 0)).resolves.toBe(null)
+  await expect(getMapping('inexistent')).resolves.toBe(null)
 })
 
 test('get access token', async () => {
