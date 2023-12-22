@@ -35,10 +35,10 @@ export async function getDirectChats(): Promise<DirectChats> {
         continue
       }
       const members = await getMatrixMembers(matrixRoomId)
-
       directChats[matrixRoomId] = members
     }
   }
+  log.info(directChats)
   return directChats
 }
 
@@ -62,19 +62,25 @@ export function parseDirectChats(
       if (!result[user]) {
         result[user] = {}
       }
+      if (users.length == 1) {
+        result[users[0]][users[0]] = []
+        if (!result[users[0]][users[0]].includes(chat)) {
+          result[users[0]][users[0]].push(chat)
+        }
+      } else {
+        // Iterate over all other users in the same chat
+        for (const otherUser of users) {
+          // Skip the current user
+          if (otherUser !== user) {
+            // If the other user is not already in the result, add them
+            if (!result[user][otherUser]) {
+              result[user][otherUser] = []
+            }
 
-      // Iterate over all other users in the same chat
-      for (const otherUser of users) {
-        // Skip the current user
-        if (otherUser !== user) {
-          // If the other user is not already in the result, add them
-          if (!result[user][otherUser]) {
-            result[user][otherUser] = []
-          }
-
-          // Add the current chat to the list of direct chats between the users
-          if (!result[user][otherUser].includes(chat)) {
-            result[user][otherUser].push(chat)
+            // Add the current chat to the list of direct chats between the users
+            if (!result[user][otherUser].includes(chat)) {
+              result[user][otherUser].push(chat)
+            }
           }
         }
       }
@@ -104,13 +110,26 @@ export async function setDirectChats(
       (await getMappingByMatrixId(user))?.accessToken || ''
     )
 
+    let currentDirectChats;
     // Check if direct chats are already set
-    const currentDirectChats = (
-      await axios.get(
-        `/_matrix/client/v3/user/${user}/account_data/m.direct`,
-        userSessionOptions
-      )
-    ).data
+    try {
+      const currentDirectChats = (
+        await axios.get(
+          `/_matrix/client/v3/user/${user}/account_data/m.direct`,
+          userSessionOptions
+        )
+      ).data
+    } catch (error) {
+      if (error instanceof Error) {
+        console.error('An error occurred:', error.message);
+      } else {
+        console.error('An unknown error occurred:', error);
+      }
+      const currentDirectChats = null;
+    }
+    log.info(chats)
+    log.info(userSessionOptions)
+    log.info(user)
 
     if (currentDirectChats && Object.keys(currentDirectChats).length > 0) {
       if (JSON.stringify(currentDirectChats) !== JSON.stringify(chats)) {
@@ -137,6 +156,7 @@ export async function setDirectChats(
         } chats as direct chats for user ${user}`
       )
     }
+
   }
 }
 
