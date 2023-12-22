@@ -1,5 +1,6 @@
 import { AxiosError } from 'axios'
 import log from '../helpers/logger'
+import { Entity, entities } from '../Entities'
 import {
   getAllMappingsByType,
   getMappingByMatrixId,
@@ -70,7 +71,7 @@ function setDict (inputDict: NestedDictionary, room: string, inputString1: strin
 
 export async function handle(): Promise<void> {
   const userDirectMessages: NestedDictionary = {}
-  const id_m = await getAllMappingsByType(3)
+  const id_m = await getAllMappingsByType(entities[Entity.DirectMessages].mappingType)
   await Promise.all(id_m.map(async (id_m) => {
     const membe = await getMemberships(id_m.rcId)
     const room_matrix = await getMatrixIdString(id_m.rcId)
