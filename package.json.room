@@ -26,7 +26,7 @@
     "fix": "npm run lint-fix",
     "test": "rm -rf dist/ && jest",
     "compile": "rm -rf dist/ && tsc",
-    "start": "npm run compile && node dist/app.js",
+    "start": "npm run compile && concurrently --restart-tries -1 \"node dist/app.js\" ",
     "prepare": "husky"
   },
   "version": "0.1.0",

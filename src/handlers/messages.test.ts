@@ -68,6 +68,7 @@ test('handling messages', async () => {
   mockedStorage.getMessageId.mockResolvedValueOnce(undefined) // For checking if the Message already exists
   mockedStorage.getMessageId.mockResolvedValue('testMatrixMessage') // For checking the parent message
 
+  const promises: Promise<void>[] = [];
   await expect(handle({ ...rcMessage, tmid: 'threadId' })).resolves.toBe(
     undefined
   )

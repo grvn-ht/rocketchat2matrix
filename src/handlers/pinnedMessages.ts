@@ -23,7 +23,9 @@ export type PromiseResult = {
 export async function getPinnedMessages(): Promise<PromiseResult> {
   const pinnedMessages: PinnedMessages = {}
   const userForRoom: UserForRoom = {}
-  const rl = new lineByLine(`./inputs/${entities.messages.filename}`)
+  const filePath = process.argv[2]; // The first argument after the script name
+  const rl = new lineByLine(`./${filePath}`)
+  //const rl = new lineByLine(`./inputs/${entities.messages.filename}`)
   let line: false | Buffer
   while ((line = rl.next())) {
     const message: RcMessage = JSON.parse(line.toString())
@@ -71,11 +73,17 @@ export async function setPinnedMessages(
     )
     const userSessionOptions = await getUserSessionOptions(userForRoom[room]) || ''
     const listPinnedMessages = {"pinned": promiseResult.pinnedMessages[room]}
-    await axios.put(
-      `/_matrix/client/v3/rooms/${room}/state/m.room.pinned_events/`,
-      listPinnedMessages,
-      userSessionOptions
-    )
+    try {
+      await axios.put(
+        `/_matrix/client/v3/rooms/${room}/state/m.room.pinned_events/`,
+        listPinnedMessages,
+        userSessionOptions
+      )
+    } catch (error) {
+      log.warn(
+        `Could not pin room`
+      )
+    }
   }
 }
 

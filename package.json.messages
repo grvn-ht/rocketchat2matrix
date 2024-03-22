@@ -1,0 +1,65 @@
+{
+  "author": "HerHde",
+  "description": "Rocket.Chat to Matrix migration script",
+  "license": "AGPL-3.0-or-later",
+  "main": "dist/app.js",
+  "name": "rocketchat2matrix",
+  "repository": {
+    "type": "git",
+    "url": "https://git.verdigado.com/NB-Public/rocketchat2matrix"
+  },
+  "engines": {
+    "node": ">=19.0.0"
+  },
+  "lint-staged": {
+    "**/*.ts": [
+      "prettier --check",
+      "eslint --max-warnings 0"
+    ]
+  },
+  "scripts": {
+    "format": "prettier 'src/**/*.ts' --check",
+    "format-fix": "prettier 'src/**/*.ts' --write",
+    "lint": "eslint src/ --ext .ts --max-warnings 0",
+    "lint-fix": "eslint src/ --fix --ext .ts",
+    "prefix": "npm run format-fix",
+    "fix": "npm run lint-fix",
+    "test": "rm -rf dist/ && jest",
+    "compile": "rm -rf dist/ && tsc",
+    "startt": "npm run compile && concurrently $(for i in inputs/combined_files_smart/*.json; do echo -n \\\"node dist/app.js $i\\\" ; done)",
+    "start": "npm run compile && concurrently --restart-tries 500 \"node dist/app.js inputs/combined_files_smart_two/output_file_0.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_10.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_11.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_12.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_13.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_14.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_15.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_16.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_17.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_18.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_19.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_1.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_20.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_21.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_22.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_23.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_24.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_25.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_26.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_27.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_28.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_29.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_2.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_30.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_31.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_32.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_33.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_34.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_35.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_36.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_37.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_38.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_39.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_3.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_40.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_41.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_42.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_43.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_44.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_45.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_46.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_47.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_48.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_49.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_4.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_50.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_51.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_52.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_53.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_54.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_55.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_56.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_57.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_58.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_59.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_5.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_60.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_61.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_62.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_63.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_64.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_65.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_66.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_67.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_68.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_69.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_6.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_70.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_71.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_72.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_73.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_74.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_75.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_76.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_77.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_78.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_79.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_7.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_80.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_81.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_82.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_83.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_84.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_85.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_86.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_87.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_88.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_89.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_8.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_90.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_91.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_92.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_93.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_94.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_95.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_96.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_97.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_98.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_99.json\" \"node dist/app.js inputs/combined_files_smart_two/output_file_9.json\"",
+    "start-concurrently": "\"node dist/app.js inputs/combined_files_smart/output_file_0.json\" \"node dist/app.js inputs/combined_files_smart/output_file_1.json\"",
+    "prepare": "husky"
+  },
+  "version": "0.1.0",
+  "devDependencies": {
+    "@jest/globals": "^29.6.4",
+    "@types/n-readlines": "^1.0.3",
+    "@types/node": "^20.5.7",
+    "@typescript-eslint/eslint-plugin": "^6.5.0",
+    "@typescript-eslint/parser": "^6.5.0",
+    "concurrently": "^8.2.2",
+    "eslint": "^8.48.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-config-standard-with-typescript": "^43.0.0",
+    "eslint-plugin-import": "^2.28.1",
+    "eslint-plugin-n": "^16.0.2",
+    "eslint-plugin-prettier": "^5.0.0",
+    "eslint-plugin-promise": "^6.1.1",
+    "husky": "^9.0.0",
+    "lint-staged": "^15.0.0",
+    "prettier": "3.2.4",
+    "ts-jest": "^29.1.1",
+    "typescript": "^5.2.2"
+  },
+  "dependencies": {
+    "axios": "^1.5.0",
+    "dotenv": "^16.3.1",
+    "n-readlines": "^1.0.1",
+    "node-emoji": "^2.1.0",
+    "reflect-metadata": "^0.2.0",
+    "sqlite3": "^5.1.6",
+    "typeorm": "^0.3.17",
+    "winston": "^3.10.0"
+  }
+}

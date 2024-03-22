@@ -22,6 +22,24 @@ if (!applicationServiceToken) {
   throw new Error(message)
 }
 
+export type Md = {
+  type: string
+  language?: string
+  value: {
+    type: string
+    value: string
+  }[]
+}[]
+
+export type Attachements = {
+  text: string
+  md?: Md
+  message_link?: string
+  author_name?: string
+  author_icon?: string
+  type?: string
+}[]
+
 /**
  * Type of Rocket.Chat messages
  */
@@ -53,6 +71,8 @@ export type RcMessage = {
       usernames: string[]
     }
   }
+  md?: Md
+  attachments?: Attachements
 }
 
 /**
@@ -70,149 +90,318 @@ export type MatrixMessage = {
       event_id: string
     }
   }
-}
-
-/**
- * Reaction emojis translated from Rocket.Chat to Unicode emojis, which Matrix uses
- */
-export type ReactionKeys = {
-  [key: string]: string
-}
-
-/**
- * Translate a Rocket.Chat message to a Matrix message event body
- * @param rcMessage The Rocket.Chat message to convert
- * @returns The Matrix event body
- */
-export function mapMessage(rcMessage: RcMessage): MatrixMessage {
-  return {
-    body: rcMessage.msg,
-    msgtype: 'm.text',
-    type: 'm.room.message',
+  'm.mentions'?: {
+    user_ids: string[]
   }
+  format?: string
+  formatted_body?: string
 }
 
-/**
- * Save an ID mapping in the local database
- * @param rcId Rocket.Chat message ID
- * @param matrixId Matrix message ID
- */
-export async function createMapping(
-  rcId: string,
-  matrixId: string
-): Promise<void> {
-  const messageMapping = new IdMapping()
-  messageMapping.rcId = rcId
-  messageMapping.matrixId = matrixId
-  messageMapping.type = entities[Entity.Messages].mappingType
+  /**
+   * Reaction emojis translated from Rocket.Chat to Unicode emojis, which Matrix uses
+   */
+  export type ReactionKeys = {
+    [key: string]: string
+  }
 
-  await save(messageMapping)
-  log.debug('Mapping added:', messageMapping)
-}
+  /**
+   * Translate a Rocket.Chat message to a Matrix message event body
+   * @param rcMessage The Rocket.Chat message to convert
+   * @returns The Matrix event body
+   */
+  export function mapMessage(rcMessage: RcMessage): MatrixMessage {
+    return {
+      body: rcMessage.msg,
+      msgtype: 'm.text',
+      type: 'm.room.message',
+    }
+  }
 
-/**
- * Send a request to Synapse, creating the message event
- * @param matrixMessage The Matrix event body to use
- * @param room_id The Matrix room, the message will be posted to
- * @param user_id The user the message will be posted by
- * @param ts The timestampt to which the message will be dated
- * @param transactionId An unique identifier to distinguish identical messages
- * @returns The Matrix Message/event ID
- */
-export async function createMessage(
-  matrixMessage: MatrixMessage,
-  room_id: string,
-  user_id: string,
-  ts: number,
-  transactionId: string
-): Promise<string> {
-  return (
-    await axios.put(
-      `/_matrix/client/v3/rooms/${room_id}/send/m.room.message/${transactionId}?user_id=${user_id}&ts=${ts}`,
-      matrixMessage,
-      formatUserSessionOptions(applicationServiceToken)
-    )
-  ).data.event_id
-}
+  /**
+   * Save an ID mapping in the local database
+   * @param rcId Rocket.Chat message ID
+   * @param matrixId Matrix message ID
+   */
+  export async function createMapping(
+    rcId: string,
+    matrixId: string
+  ): Promise<void> {
+    const messageMapping = new IdMapping()
+    messageMapping.rcId = rcId
+    messageMapping.matrixId = matrixId
+    messageMapping.type = entities[Entity.Messages].mappingType
 
-/**
- * Add reactions to the event
- * @param reactions A Rocket.Chat reactions object
- * @param matrixMessageId The Matrix event reacted to
- * @param matrixRoomId The Matrix room
- */
-export async function handleReactions(
-  reactions: RcMessage['reactions'],
-  matrixMessageId: string,
-  matrixRoomId: string
-): Promise<void> {
-  for (const [reaction, value] of Object.entries(reactions || {})) {
-    // Lookup key/emoji
-    const reactionKey: string =
-      (reactionKeys as ReactionKeys)[reaction] ||
-      emoji.get(reaction.replaceAll(':', '')) ||
-      ''
+    await save(messageMapping)
+    log.debug('Mapping added:', messageMapping)
+  }
 
-    if (!reactionKey) {
-      log.warn(
-        `Could not find an emoji for ${reaction} for message ${matrixMessageId}, skipping`
+  /**
+   * Send a request to Synapse, creating the message event
+   * @param matrixMessage The Matrix event body to use
+   * @param room_id The Matrix room, the message will be posted to
+   * @param user_id The user the message will be posted by
+   * @param ts The timestampt to which the message will be dated
+   * @param transactionId An unique identifier to distinguish identical messages
+   * @returns The Matrix Message/event ID
+   */
+  export async function createMessage(
+    matrixMessage: MatrixMessage,
+    room_id: string,
+    user_id: string,
+    ts: number,
+    transactionId: string
+  ): Promise<string> {
+    let result: string | null = null;
+    try {
+      const request = await axios.put(
+        `/_matrix/client/v3/rooms/${room_id}/send/m.room.message/${transactionId}?user_id=${user_id}&ts=${ts}`,
+        matrixMessage,
+        formatUserSessionOptions(applicationServiceToken)
       )
-      continue
+      result = request.data.event_id;
+    } catch (error) {
+      log.warn(
+        `Could not send put request, no body`
+      )
+      log.warn(matrixMessage)
+      return Promise.resolve("");
+    }
+    if (result === null) {
+      return Promise.resolve(""); // Return an empty array if result is null
+    } else {
+      return Promise.resolve(result); // Otherwise, return the result array
     }
 
-    await Promise.all(
-      [...new Set(value.usernames)] // Deduplicate users
-        .map(async (rcUsername: string) => {
-          // generate transaction id
-          const transactionId = Buffer.from(
-            [matrixMessageId, reactionKey, rcUsername].join('\0')
-          ).toString('base64url')
-          // lookup user access token
-          const userMapping = await getUserMappingByName(rcUsername)
-          if (!userMapping || !userMapping.accessToken) {
-            log.warn(
-              `Could not find user mapping for name: ${rcUsername}, skipping reaction ${reactionKey} for message ${matrixMessageId}`
-            )
-            return
-          }
-
-          const userSessionOptions = formatUserSessionOptions(
-            userMapping.accessToken
-          )
-          log.http(
-            `Adding reaction to message ${matrixMessageId} with symbol ${reactionKey} for user ${rcUsername}`
-          )
-          // put reaction
-          try {
-            await executeAndHandleMissingMember(() =>
-              axios.put(
-                `/_matrix/client/v3/rooms/${matrixRoomId}/send/m.reaction/${transactionId}`,
-                {
-                  'm.relates_to': {
-                    rel_type: 'm.annotation',
-                    event_id: matrixMessageId,
-                    key: reactionKey,
-                  },
-                },
-                userSessionOptions
-              )
-            )
-          } catch (error) {
-            if (
-              error instanceof AxiosError &&
-              error.response &&
-              error.response.data.errcode === 'M_DUPLICATE_ANNOTATION'
-            ) {
-              log.debug(
-                `Duplicate reaction to message ${matrixMessageId} with symbol ${reactionKey} for user ${rcUsername}, skipping.`
-              )
-            } else {
-              throw error
-            }
-          }
-        })
-    )
+    //return (
+    //  await axios.put(
+    //    `/_matrix/client/v3/rooms/${room_id}/send/m.room.message/${transactionId}?user_id=${user_id}&ts=${ts}`,
+    //    matrixMessage,
+    //    formatUserSessionOptions(applicationServiceToken)
+    //  )
+    //).data.event_id
   }
+
+  /**
+   * Add reactions to the event
+   * @param reactions A Rocket.Chat reactions object
+   * @param matrixMessageId The Matrix event reacted to
+   * @param matrixRoomId The Matrix room
+   */
+  export async function handleReactions(
+    reactions: RcMessage['reactions'],
+    matrixMessageId: string,
+    matrixRoomId: string
+  ): Promise<void> {
+    for (const [reaction, value] of Object.entries(reactions || {})) {
+      // Lookup key/emoji
+      const reactionKey: string =
+        (reactionKeys as ReactionKeys)[reaction] ||
+        emoji.get(reaction.replaceAll(':', '')) ||
+        ''
+
+      if (!reactionKey) {
+        log.warn(
+          `Could not find an emoji for ${reaction} for message ${matrixMessageId}, skipping`
+        )
+        continue
+      }
+
+      await Promise.all(
+        [...new Set(value.usernames)] // Deduplicate users
+          .map(async (rcUsername: string) => {
+            // generate transaction id
+            const transactionId = Buffer.from(
+              [matrixMessageId, reactionKey, rcUsername].join('\0')
+            ).toString('base64url')
+            // lookup user access token
+            const userMapping = await getUserMappingByName(rcUsername)
+            if (!userMapping || !userMapping.accessToken) {
+              log.warn(
+                `Could not find user mapping for name: ${rcUsername}, skipping reaction ${reactionKey} for message ${matrixMessageId}`
+              )
+              return
+            }
+
+            const userSessionOptions = formatUserSessionOptions(
+              userMapping.accessToken
+            )
+            log.http(
+              `Adding reaction to message ${matrixMessageId} with symbol ${reactionKey} for user ${rcUsername}`
+            )
+            // put reaction
+            try {
+              await executeAndHandleMissingMember(() =>
+                axios.put(
+                  `/_matrix/client/v3/rooms/${matrixRoomId}/send/m.reaction/${transactionId}`,
+                  {
+                    'm.relates_to': {
+                      rel_type: 'm.annotation',
+                      event_id: matrixMessageId,
+                      key: reactionKey,
+                    },
+                  },
+                  userSessionOptions
+                )
+              )
+            } catch (error) {
+              if (
+                error instanceof AxiosError &&
+                error.response &&
+                error.response.data.errcode === 'M_DUPLICATE_ANNOTATION'
+              ) {
+                log.debug(
+                  `Duplicate reaction to message ${matrixMessageId} with symbol ${reactionKey} for user ${rcUsername}, skipping.`
+                )
+              } else {
+                  log.warn(
+                    `Could not apply reaction, no linked message`
+                  )
+                  return Promise.resolve();
+                //throw error
+              }
+            }
+          })
+      )
+    }
+  }
+
+/**
+ * format message body to handle Links
+ * @param formatted_body, matrixMessage
+ */
+export async function formatLink(formatted_body: string): Promise<string[]> {
+  const regexMessageId: RegExp = /\[ \]\(https:\/[^?]+\?msg=([^)]+)\)/
+  let msgMatrixId: string = ''
+  let messageMatrixId: string = ''
+
+  const match: RegExpExecArray | null = regexMessageId.exec(formatted_body)
+  if (match && match[1]) {
+    const msgId: string = match[1]
+    log.warn(msgId)
+    const msgMatrixId = await getMessageId(msgId)
+    if (msgMatrixId) {
+      messageMatrixId = msgMatrixId
+      log.debug(`message matrix id ${messageMatrixId}`)
+    }
+  } else {
+    log.warn('No message ID found')
+  }
+  return [formatted_body, messageMatrixId]
+}
+
+/**
+ * get text and author from linked message and compute new formatted body
+ * @param formatted_body, attachments
+ */
+export async function getFromAttachement(
+  formatted_body: string,
+  attachements: Attachements,
+  matrixMessage: MatrixMessage
+): Promise<string[]> {
+  const regexMessageId: RegExp = /\[ \]\(https:\/[^?]+\?msg=([^)]+)\)/
+  const regexUserName: RegExp = /\/avatar\/([^?]+)/
+  let authorMatrixId: string = ''
+  let message: string = ''
+  for (const item of attachements) {
+    if (item.message_link && item.author_icon && item.text) {
+      const match: RegExpExecArray | null = regexUserName.exec(item.author_icon)
+      if (match && match[1]) {
+        const username: string = match[1]
+        log.warn(username)
+        const userMapping = await getUserMappingByName(username)
+        if (!userMapping || !userMapping.matrixId) {
+          log.warn(`Could not find user mapping for name: ${username}`)
+        } else {
+          log.warn(userMapping.matrixId)
+          authorMatrixId = userMapping.matrixId
+        }
+      } else {
+        log.warn('No message ID found')
+      }
+      const textInside: string = item.text.replace(regexMessageId, '')
+      message = textInside
+      break
+    }
+  }
+  return [authorMatrixId, formatted_body, message]
+}
+
+/**
+ * format message body to handle code
+ * @param formatted_body, matrixMessage
+ */
+export function formatCodeBis(
+  formatted_body: string,
+  matrixMessage: MatrixMessage
+): string {
+  let concat: string = "";
+  const substrings = formatted_body.split("```");
+  for (let i = 0; i < substrings.length; i++) {
+    if (i !== 0 && i !== substrings.length-1) {
+      if (substrings[i].startsWith("\n")) {
+        substrings[i]= substrings[i].substring(1)
+      }
+      if (substrings[i].endsWith("\n")) {
+        substrings[i]=substrings[i].substring(0, substrings[i].length - 1)
+      }
+      substrings[i]= "<pre><code>" + substrings[i] + "</code></pre>"
+    }
+    if (substrings.length === 2) {
+      substrings[1]= "<pre><code>" + substrings[1] + "</code></pre>"
+    }
+    concat = concat + substrings[i]
+  }
+  //const substringsbis = concat.split("`");
+  //let concatbis: string = "";
+  //for (let i = 0; i < substringsbis.length; i++) {
+  //  if (i !== 0 && i !== substringsbis.length-1) {
+  //    substringsbis[i]= "<pre><code>" + substringsbis[i] + "</code></pre>"
+  //  }
+  //  concatbis = concatbis + substringsbis[i]
+  //}
+  if (concat !== formatted_body){
+    matrixMessage.formatted_body = concat
+    matrixMessage.format = `org.matrix.custom.html`
+  }
+  return concat
+}
+
+/**
+ * format message body to handle code
+ * @param formatted_body, matrixMessage
+ */
+export function formatCode(
+  formatted_body: string,
+  matrixMessage: MatrixMessage
+): string {
+  formatted_body = replaceString(formatted_body, '```\n', '<pre><code>')
+  formatted_body = replaceString(formatted_body, '\n```', '</code></pre>\n')
+  log.warn(formatted_body)
+  matrixMessage.formatted_body = formatted_body
+  matrixMessage.format = `org.matrix.custom.html`
+  return formatted_body
+}
+
+/**
+ * replace string by other string
+ * @param input string, string to replace, replacement string
+ */
+export function replaceString(
+  str: string,
+  toreplace: string,
+  replacement: string
+): string {
+  // Find the index of the first occurrence of triple backticks
+  const index = str.indexOf(toreplace)
+  if (index === -1) {
+    return str // Return the original string if no triple backticks found
+  }
+
+  // Replace the first occurrence of triple backticks with the replacement string
+  const replacedString =
+    str.slice(0, index) + replacement + str.slice(index + toreplace.length)
+
+  return replacedString
 }
 
 /**
@@ -235,12 +424,13 @@ export async function handle(rcMessage: RcMessage): Promise<void> {
     )
     return
   }
-
   if (rcMessage.t) {
     switch (rcMessage.t) {
+
       case 'ru': // User removed by
       case 'ul': // User left
       case 'ult': // User left team
+      /*
       case 'removed-user-from-team': // Removed user from team
         log.info(
           `Message ${rcMessage._id} is of type ${rcMessage.t}, removing member ${rcMessage.msg} from room ${room_id}`
@@ -278,7 +468,7 @@ export async function handle(rcMessage: RcMessage): Promise<void> {
           formatUserSessionOptions(userMapping.accessToken)
         )
         return
-
+      */
       case 'uj': // User joined channel
       case 'ujt': // User joined team
       case 'ut': // User joined conversation
@@ -293,6 +483,7 @@ export async function handle(rcMessage: RcMessage): Promise<void> {
         return
 
       case 'user-muted': // User muted by
+
       default:
         log.warn(
           `Message ${rcMessage._id} is of unhandled type ${rcMessage.t}, skipping.`
@@ -308,28 +499,109 @@ export async function handle(rcMessage: RcMessage): Promise<void> {
     )
     return
   }
-  const matrixMessage = mapMessage(rcMessage)
-  const ts = new Date(rcMessage.ts.$date).valueOf()
+  if (rcMessage.msg) {
+    const matrixMessage = mapMessage(rcMessage)
 
-  if (rcMessage.tmid) {
-    const event_id = await getMessageId(rcMessage.tmid)
-    if (!event_id) {
-      log.warn(`Related message ${rcMessage.tmid} missing, skipping.`)
-      return
-    } else {
-      matrixMessage['m.relates_to'] = {
-        rel_type: 'm.thread',
-        event_id,
-        is_falling_back: true,
-        'm.in_reply_to': {
+    const ts = new Date(rcMessage.ts.$date).valueOf()
+
+    if (rcMessage.tmid) {
+      const event_id = await getMessageId(rcMessage.tmid)
+      if (!event_id) {
+        log.warn(`Related message ${rcMessage.tmid} missing, skipping.`)
+        return
+      } else {
+        matrixMessage['m.relates_to'] = {
+          rel_type: 'm.thread',
           event_id,
-        },
+          is_falling_back: true,
+          'm.in_reply_to': {
+            event_id,
+          },
+        }
       }
     }
+    let domain: string = 'message-bus.skilld.cloud'
+    let formatted_body: string = matrixMessage.body
+    formatted_body = formatCodeBis(formatted_body, matrixMessage)
+    if (rcMessage.attachments) {
+      for (const attach of rcMessage.attachments) {
+        if (!attach.type) {
+          const regexMessageId: RegExp = /\[ \]\(https:\/[^?]+\?msg=([^)]+)\)/
+          let messageMatrixId: string = ''
+          let authorMatrixId: string = ''
+          let message: string = '';
+          [formatted_body, messageMatrixId] = await formatLink(formatted_body);
+          [authorMatrixId, formatted_body, message] =
+            await getFromAttachement(
+              formatted_body,
+              rcMessage.attachments,
+              matrixMessage
+            );
+          const new_body: string = `> <${authorMatrixId}> ${message}`
+          const form_body: string = `<mx-reply><blockquote><a href=\"https://matrix.to/#/${room_id}/${messageMatrixId}?via=${domain}\">In reply to</a> <a href=\"https://matrix.to/#/${authorMatrixId}\">${authorMatrixId}</a><br>${message}</blockquote></mx-reply>`
+          const replacedStr: string = matrixMessage.body.replace(
+            regexMessageId,
+            new_body
+          )
+          const replacedStrForm: string = formatted_body.replace(
+            regexMessageId,
+            form_body
+          )
+          matrixMessage.body = replacedStr
+          formatted_body = replacedStrForm
+          matrixMessage.formatted_body = formatted_body
+          matrixMessage.format = `org.matrix.custom.html`
+        }
+      }
+    }
+    /*
+    if (rcMessage.md) {
+      let formatted_body: string = matrixMessage.body
+      for (const item of rcMessage.md) {
+        if (item.type === 'CODE') {
+          formatted_body = formatCode(formatted_body, matrixMessage)
+        } else if (item.type === 'PARAGRAPH') {
+          for (const val of item.value) {
+            if (val.type === 'LINK' && rcMessage.attachments) {
+              const regexMessageId: RegExp = /\[ \]\(https:\/[^?]+\?msg=([^)]+)\)/
+              let messageMatrixId: string = ''
+              let authorMatrixId: string = ''
+              let message: string = '';
+              [formatted_body, messageMatrixId] = await formatLink(formatted_body);
+              [authorMatrixId, formatted_body, message] =
+                await getFromAttachement(
+                  formatted_body,
+                  rcMessage.attachments,
+                  matrixMessage
+                );
+              const new_body: string = `> <${authorMatrixId}> ${message}`
+              const form_body: string = `<mx-reply><blockquote><a href=\"https://matrix.to/#/${room_id}/${messageMatrixId}?via=${domain}\">In reply to</a> <a href=\"https://matrix.to/#/${authorMatrixId}\">${authorMatrixId}</a><br>${message}</blockquote></mx-reply>`
+              const replacedStr: string = matrixMessage.body.replace(
+                regexMessageId,
+                new_body
+              )
+              const replacedStrForm: string = formatted_body.replace(
+                regexMessageId,
+                form_body
+              )
+              matrixMessage.body = replacedStr
+              formatted_body = replacedStrForm
+              matrixMessage.formatted_body = formatted_body
+              matrixMessage.format = `org.matrix.custom.html`
+            }
+          }
+        }
+      }
+    }
+    */
+    await executeAndHandleMissingMember(() =>
+      createEventsAndMapping(matrixMessage, room_id, user_id, ts, rcMessage)
+    )
+  } else{
+    log.warn("no msg")
+    return
   }
-  await executeAndHandleMissingMember(() =>
-    createEventsAndMapping(matrixMessage, room_id, user_id, ts, rcMessage)
-  )
+
 }
 
 /**

@@ -9,6 +9,8 @@ import { handlePinnedMessages } from './handlers/pinnedMessages'
 import { handle as handleMessage } from './handlers/messages'
 import { getFilteredMembers, handle as handleRoom } from './handlers/rooms'
 import { handle as handleUser } from './handlers/users'
+import { handle as handleEmailNotif } from './handlers/emailAndNotif'
+import { handleMarkAllAsRead } from './handlers/markAllAsRead'
 import log from './helpers/logger'
 import {
   getAllMappingsByType,
@@ -30,28 +32,44 @@ log.info('rocketchat2matrix starts.')
  * @param entity The Entity with it's file name and type definitions
  */
 async function loadRcExport(entity: Entity) {
-  const rl = new lineByLine(`./inputs/${entities[entity].filename}`)
+  const filePath = process.argv[2]; // The first argument after the script name
+  //const rl = new lineByLine(`./inputs/${entities[entity].filename}`)
+  const rl = new lineByLine(`./${filePath}`)
 
   let line: false | Buffer
-  while ((line = rl.next())) {
-    const item = JSON.parse(line.toString())
-    switch (entity) {
-      case Entity.Users:
-        await handleUser(item)
-        break
 
-      case Entity.Rooms:
-        await handleRoom(item)
-        break
+  let errorOccurred = false;
+  const promises: Promise<void>[] = [];
+  try {
+    while ((line = rl.next())) {
+      const item = JSON.parse(line.toString())
+      switch (entity) {
+        case Entity.Users:
+          await handleUser(item)
+          break
 
-      case Entity.Messages:
-        await handleMessage(item)
-        break
+        case Entity.Rooms:
+          await handleRoom(item)
+          break
 
-      default:
-        throw new Error(`Unhandled Entity: ${entity}`)
+        case Entity.Messages:
+          await handleMessage(item)
+          break
+
+        default:
+          throw new Error(`Unhandled Entity: ${entity}`)
+      }
+      if (errorOccurred) {
+        break;
+      }
     }
+  } catch (error) {
+    console.error('An error occurred:', error);
+    errorOccurred = true;
+    await Promise.all(promises);
+    throw error;
   }
+  await Promise.all(promises);
 }
 
 /**
@@ -117,19 +135,22 @@ async function main() {
     await whoami()
     await initStorage()
 
-    log.info('Parsing users')
-    await loadRcExport(Entity.Users)
-    log.info('Parsing rooms')
-    await loadRcExport(Entity.Rooms)
-    log.info('Parsing messages')
-    await loadRcExport(Entity.Messages)
-    log.info('Checking room memberships')
-    await removeExcessRoomMembers()
-    log.info('Setting direct chats to be displayed as such for each user')
-    await handleDirectChats()
+    //log.info('Parsing users')
+    //await loadRcExport(Entity.Users)
+    //log.info('Parsing rooms')
+    //await loadRcExport(Entity.Rooms)
+    //log.info('Parsing messages')
+    //await loadRcExport(Entity.Messages)
+    //log.info('Checking room memberships')
+    //await removeExcessRoomMembers()
+    //log.info('Setting direct chats to be displayed as such for each user')
+    //await handleDirectChats()
     log.info('Setting pinned messages in rooms')
     await handlePinnedMessages()
-
+    //log.info('Mark all messages as read in rooms')
+    //await handleMarkAllAsRead()
+    //log.info('Setting email in user account and an email pusher')
+    //await handleEmailNotif(Entity.Users)
     log.info('Done.')
   } catch (error) {
     if (error instanceof AxiosError) {

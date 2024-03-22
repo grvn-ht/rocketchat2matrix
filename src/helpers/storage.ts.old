@@ -3,11 +3,9 @@ import { Entity, entities } from '../Entities'
 import { IdMapping } from '../entity/IdMapping'
 import { Membership } from '../entity/Membership'
 
-const dbPath = process.argv[3];
-
 const AppDataSource = new DataSource({
   type: 'sqlite',
-  database: process.env.DATABASE || dbPath, //'db.sqlite',
+  database: process.env.DATABASE || 'db.sqlite',
   entities: [IdMapping, Membership],
   synchronize: true,
   logging: false,
@@ -17,15 +15,7 @@ const AppDataSource = new DataSource({
  * Initialise the local database and adapter. This must be called once, before any queries are made
  */
 export async function initStorage(): Promise<void> {
-  let shouldContinue = true;
-  while (shouldContinue) {
-    try {
-      await AppDataSource.initialize()
-      shouldContinue = false;
-    } catch (error) {
-      continue;
-    }
-  }
+  await AppDataSource.initialize()
 }
 
 /**
@@ -34,24 +24,14 @@ export async function initStorage(): Promise<void> {
  * @param type The mapping type: 0 for Users, 1 for Rooms, 2 for Messages
  * @returns One found IdMapping or null
  */
-export async function getMapping(
+export function getMapping(
   rcId: string,
   type: number
 ): Promise<IdMapping | null> {
-  let shouldContinue = true;
-  let result: IdMapping | null = null;
-  while (shouldContinue) {
-    try {
-      result = await AppDataSource.manager.findOneBy(IdMapping, {
-        rcId: rcId,
-        type: type,
-      });
-      shouldContinue = false;
-    } catch (error) {
-      continue;
-    }
-  }
-  return result;
+  return AppDataSource.manager.findOneBy(IdMapping, {
+    rcId: rcId,
+    type: type,
+  })
 }
 
 /**
@@ -59,22 +39,8 @@ export async function getMapping(
  * @param type The mapping type: 0 for Users, 1 for Rooms, 2 for Messages
  * @returns An array of IdMappings of the defined type
  */
-export async function getAllMappingsByType(type: number): Promise<IdMapping[]> {
-  let shouldContinue = true;
-  let result: IdMapping[] | null = null;
-  while (shouldContinue) {
-    try {
-      result = await AppDataSource.manager.findBy(IdMapping, { type })
-      shouldContinue = false;
-    } catch (error) {
-      continue;
-    }
-  }
-  if (result === null) {
-    return Promise.resolve([]); // Return an empty array if result is null
-  } else {
-    return result; // Otherwise, return the result array
-  }
+export function getAllMappingsByType(type: number): Promise<IdMapping[]> {
+  return AppDataSource.manager.findBy(IdMapping, { type })
 }
 
 /**
@@ -82,22 +48,12 @@ export async function getAllMappingsByType(type: number): Promise<IdMapping[]> {
  * @param matrixId The Matrix ID to look up
  * @returns One found IdMapping or null
  */
-export async function getMappingByMatrixId(
+export function getMappingByMatrixId(
   matrixId: string
 ): Promise<IdMapping | null> {
-  let shouldContinue = true;
-  let result: IdMapping | null = null;
-  while (shouldContinue) {
-    try {
-      result = await AppDataSource.manager.findOneBy(IdMapping, {
-        matrixId: matrixId,
-      });
-      shouldContinue = false;
-    } catch (error) {
-      continue;
-    }
-  }
-  return result;
+  return AppDataSource.manager.findOneBy(IdMapping, {
+    matrixId: matrixId,
+  })
 }
 
 /**
@@ -105,23 +61,13 @@ export async function getMappingByMatrixId(
  * @param username The Matrix or Rocket.Chat username to look up
  * @returns One found IdMapping or null
  */
-export async function getUserMappingByName(
+export function getUserMappingByName(
   username: string
 ): Promise<IdMapping | null> {
-  let shouldContinue = true;
-  let result: IdMapping | null = null;
-  while (shouldContinue) {
-    try {
-      result = await AppDataSource.manager.findOneBy(IdMapping, {
-        matrixId: ILike(`@${username.toLowerCase()}:%`),
-        type: entities[Entity.Users].mappingType,
-      });
-      shouldContinue = false;
-    } catch (error) {
-      continue;
-    }
-  }
-  return result;
+  return AppDataSource.manager.findOneBy(IdMapping, {
+    matrixId: ILike(`@${username.toLowerCase()}:%`),
+    type: entities[Entity.Users].mappingType,
+  })
 }
 
 /**
@@ -129,15 +75,7 @@ export async function getUserMappingByName(
  * @param entity The entity to save
  */
 export async function save(entity: IdMapping | Membership): Promise<void> {
-  let shouldContinue = true;
-  while (shouldContinue) {
-    try {
-      await AppDataSource.manager.save(entity)
-      shouldContinue = false;
-    } catch (error) {
-      continue;
-    }
-  }
+  await AppDataSource.manager.save(entity)
 }
 
 /**
@@ -174,29 +112,16 @@ export async function createMembership(
  * @returns An array of Rocket.Chat user IDs that are members of the room
  */
 export async function getMemberships(rcRoomId: string): Promise<string[]> {
-  let shouldContinue = true;
-  let result: string[] | null = null;
-  while (shouldContinue) {
-    try {
-      const membershipEntities = await AppDataSource.manager.find(Membership, {
-        select: {
-          rcUserId: true,
-        },
-        where: {
-          rcRoomId: rcRoomId,
-        },
-      });
-      result = membershipEntities.map((entity) => entity.rcUserId);
-      shouldContinue = false;
-    } catch (error) {
-      continue;
-    }
-  }
-  if (result === null) {
-    return Promise.resolve([]); // Return an empty array if result is null
-  } else {
-    return Promise.resolve(result); // Otherwise, return the result array
-  }
+  return (
+    await AppDataSource.manager.find(Membership, {
+      select: {
+        rcUserId: true,
+      },
+      where: {
+        rcRoomId: rcRoomId,
+      },
+    })
+  ).map((entity) => entity.rcUserId)
 }
 
 /**

@@ -12,6 +12,10 @@ export type RcUser = {
   name: string
   roles: string[]
   __rooms: string[]
+  emails?: {
+    address: string
+    verified: boolean
+  }[]
 }
 
 export type MatrixUser = {
@@ -168,19 +172,22 @@ export async function createUser(rcUser: RcUser): Promise<MatrixUser> {
  */
 export async function handle(rcUser: RcUser): Promise<void> {
   log.info(`Parsing user: ${rcUser.name}: ${rcUser._id}`)
-
-  const matrixId = await getUserId(rcUser._id)
-  if (matrixId) {
-    log.debug(`Mapping exists: ${rcUser._id} -> ${matrixId}`)
-  } else {
-    if (rcUser.username === adminUsername) {
-      log.info(
-        `User ${rcUser.username} is defined as admin in ENV, mapping as such`
-      )
-      await createMapping(rcUser._id, adminAccessToken as unknown as MatrixUser)
-    } else if (!userIsExcluded(rcUser)) {
-      const matrixUser = await createUser(rcUser)
-      await createMapping(rcUser._id, matrixUser)
+  try{
+    const matrixId = await getUserId(rcUser._id)
+    if (matrixId) {
+      log.debug(`Mapping exists: ${rcUser._id} -> ${matrixId}`)
+    } else {
+      if (rcUser.username === adminUsername) {
+        log.info(
+          `User ${rcUser.username} is defined as admin in ENV, mapping as such`
+        )
+        await createMapping(rcUser._id, adminAccessToken as unknown as MatrixUser)
+      } else if (!userIsExcluded(rcUser)) {
+        const matrixUser = await createUser(rcUser)
+        await createMapping(rcUser._id, matrixUser)
+      }
     }
+  } catch (error){
+      console.error("Caught an error:", error);
   }
 }

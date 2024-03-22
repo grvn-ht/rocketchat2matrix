@@ -392,6 +392,7 @@ export async function executeAndHandleMissingMember(
     /^User (?<matrixUserId>@.+) not in room (?<matrixRoomId>!.+)$/
   try {
     await fn()
+    //fn()
   } catch (error) {
     if (
       error instanceof AxiosError &&
@@ -437,6 +438,7 @@ export async function executeAndHandleMissingMember(
       throw error
     }
   }
+  //await new Promise(resolve => setTimeout(resolve, 100));
 }
 
 /**
