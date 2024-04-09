@@ -12,6 +12,10 @@ export type RcUser = {
   name: string
   roles: string[]
   __rooms: string[]
+  emails?: {
+    address: string
+    verified: boolean
+  }[]
 }
 
 export type MatrixUser = {
