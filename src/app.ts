@@ -32,7 +32,9 @@ log.info('rocketchat2matrix starts.')
  * @param entity The Entity with it's file name and type definitions
  */
 async function loadRcExport(entity: Entity) {
-  const rl = new lineByLine(`./inputs/${entities[entity].filename}`)
+  const filePath = process.argv[2] // The first argument after the script name
+  //const rl = new lineByLine(`./inputs/${entities[entity].filename}`)
+  const rl = new lineByLine(`./${filePath}`)
 
   let line: false | Buffer
   while ((line = rl.next())) {
@@ -119,10 +121,10 @@ async function main() {
     await whoami()
     await initStorage()
 
-    log.info('Parsing users')
-    await loadRcExport(Entity.Users)
-    log.info('Parsing rooms')
-    await loadRcExport(Entity.Rooms)
+    //log.info('Parsing users')
+    //await loadRcExport(Entity.Users)
+    //log.info('Parsing rooms')
+    //await loadRcExport(Entity.Rooms)
     log.info('Parsing messages')
     await loadRcExport(Entity.Messages)
     log.info('Setting direct chats to be displayed as such for each user')
@@ -131,8 +133,8 @@ async function main() {
     await handlePinnedMessages()
     log.info('Mark all messages as read in rooms')
     await handleMarkAllAsRead()
-    log.info('Checking room memberships')
-    await removeExcessRoomMembers()
+    //log.info('Checking room memberships')
+    //await removeExcessRoomMembers()
 
     log.info('Done.')
   } catch (error) {

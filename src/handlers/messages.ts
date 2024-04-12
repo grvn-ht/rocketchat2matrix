@@ -10,7 +10,11 @@ import {
   getUserMappingByName,
   save,
 } from '../helpers/storage'
-import { axios, formatUserSessionOptions } from '../helpers/synapse'
+import {
+  axios,
+  formatUserSessionOptions,
+  getDomainName,
+} from '../helpers/synapse'
 import reactionKeys from '../reactions.json'
 import { executeAndHandleMissingMember } from './rooms'
 import { AxiosError } from 'axios'
@@ -21,6 +25,24 @@ if (!applicationServiceToken) {
   log.error(message)
   throw new Error(message)
 }
+
+export type Md = {
+  type: string
+  language?: string
+  value: {
+    type: string
+    value: string
+  }[]
+}[]
+
+export type Attachements = {
+  text: string
+  md?: Md
+  message_link?: string
+  author_name?: string
+  author_icon?: string
+  attachments?: Attachements
+}[]
 
 /**
  * Type of Rocket.Chat messages
@@ -53,7 +75,8 @@ export type RcMessage = {
       usernames: string[]
     }
   }
-  md?: string
+  md?: Md
+  attachments?: Attachements
 }
 
 /**
@@ -71,6 +94,11 @@ export type MatrixMessage = {
       event_id: string
     }
   }
+  'm.mentions'?: {
+    user_ids: string[]
+  }
+  format?: string
+  formatted_body?: string
 }
 
 /**
@@ -217,6 +245,112 @@ export async function handleReactions(
 }
 
 /**
+ * format message body to handle Links
+ * @param formatted_body, matrixMessage
+ */
+export async function formatLink(formatted_body: string): Promise<string[]> {
+  const regexMessageId: RegExp = /\[ \]\(https:\/[^?]+\?msg=([^)]+)\)/
+  let msgMatrixId: string = ''
+  let messageMatrixId: string = ''
+
+  const match: RegExpExecArray | null = regexMessageId.exec(formatted_body)
+  if (match && match[1]) {
+    const msgId: string = match[1]
+    log.warn(msgId)
+    const msgMatrixId = await getMessageId(msgId)
+    if (msgMatrixId) {
+      messageMatrixId = msgMatrixId
+      log.debug(`message matrix id ${messageMatrixId}`)
+    }
+  } else {
+    log.warn('No message ID found')
+  }
+  return [formatted_body, messageMatrixId]
+}
+
+/**
+ * get text and author from linked message and compute new formatted body
+ * @param formatted_body, attachments
+ */
+export async function getFromAttachement(
+  formatted_body: string,
+  attachements: Attachements,
+  matrixMessage: MatrixMessage
+): Promise<string[]> {
+  const regexMessageId: RegExp = /\[ \]\(https:\/[^?]+\?msg=([^)]+)\)/
+  const regexUserName: RegExp = /\/avatar\/([^?]+)/
+  let authorMatrixId: string = ''
+  let message: string = ''
+  for (const item of attachements) {
+    if (item.message_link && item.author_icon && item.text) {
+      const match: RegExpExecArray | null = regexUserName.exec(item.author_icon)
+      if (match && match[1]) {
+        const username: string = match[1]
+        log.warn(username)
+        const userMapping = await getUserMappingByName(username)
+        if (!userMapping || !userMapping.matrixId) {
+          log.warn(`Could not find user mapping for name: ${username}`)
+        } else {
+          log.warn(userMapping.matrixId)
+          authorMatrixId = userMapping.matrixId
+        }
+      } else {
+        log.warn('No message ID found')
+      }
+      if (item.md) {
+        for (const itemm of item.md) {
+          if (itemm.type === 'CODE') {
+            formatted_body = formatCode(formatted_body, matrixMessage)
+          }
+        }
+      }
+      const textInside: string = item.text.replace(regexMessageId, '')
+      message = textInside
+      break
+    }
+  }
+  return [authorMatrixId, formatted_body, message]
+}
+
+/**
+ * format message body to handle code
+ * @param formatted_body, matrixMessage
+ */
+export function formatCode(
+  formatted_body: string,
+  matrixMessage: MatrixMessage
+): string {
+  formatted_body = replaceString(formatted_body, '```\n', '<pre><code>')
+  formatted_body = replaceString(formatted_body, '\n```', '</code></pre>\n')
+  log.warn(formatted_body)
+  matrixMessage.formatted_body = formatted_body
+  matrixMessage.format = `org.matrix.custom.html`
+  return formatted_body
+}
+
+/**
+ * replace string by other string
+ * @param input string, string to replace, replacement string
+ */
+export function replaceString(
+  str: string,
+  toreplace: string,
+  replacement: string
+): string {
+  // Find the index of the first occurrence of triple backticks
+  const index = str.indexOf(toreplace)
+  if (index === -1) {
+    return str // Return the original string if no triple backticks found
+  }
+
+  // Replace the first occurrence of triple backticks with the replacement string
+  const replacedString =
+    str.slice(0, index) + replacement + str.slice(index + toreplace.length)
+
+  return replacedString
+}
+
+/**
  * Handle a line of a Rocket.Chat message JSON export
  * @param rcMessage A Rocket.Chat message object
  */
@@ -236,9 +370,10 @@ export async function handle(rcMessage: RcMessage): Promise<void> {
     )
     return
   }
-
+  /*
   if (rcMessage.t) {
     switch (rcMessage.t) {
+
       case 'ru': // User removed by
       case 'ul': // User left
       case 'ult': // User left team
@@ -279,7 +414,6 @@ export async function handle(rcMessage: RcMessage): Promise<void> {
           formatUserSessionOptions(userMapping.accessToken)
         )
         return
-
       case 'uj': // User joined channel
       case 'ujt': // User joined team
       case 'ut': // User joined conversation
@@ -294,6 +428,7 @@ export async function handle(rcMessage: RcMessage): Promise<void> {
         return
 
       case 'user-muted': // User muted by
+
       default:
         log.warn(
           `Message ${rcMessage._id} is of unhandled type ${rcMessage.t}, skipping.`
@@ -301,7 +436,7 @@ export async function handle(rcMessage: RcMessage): Promise<void> {
         return
     }
   }
-
+  */
   const user_id = await getUserId(rcMessage.u._id)
   if (!user_id) {
     log.warn(
@@ -325,6 +460,47 @@ export async function handle(rcMessage: RcMessage): Promise<void> {
         'm.in_reply_to': {
           event_id,
         },
+      }
+    }
+  }
+  let domain: string = ''
+  domain = getDomainName()
+  if (rcMessage.md) {
+    let formatted_body: string = matrixMessage.body
+    for (const item of rcMessage.md) {
+      if (item.type === 'CODE') {
+        formatted_body = formatCode(formatted_body, matrixMessage)
+      } else if (item.type === 'PARAGRAPH') {
+        for (const val of item.value) {
+          if (val.type === 'LINK' && rcMessage.attachments) {
+            const regexMessageId: RegExp = /\[ \]\(https:\/[^?]+\?msg=([^)]+)\)/
+            let messageMatrixId: string = ''
+            let authorMatrixId: string = ''
+            let message: string = ''
+            ;[formatted_body, messageMatrixId] =
+              await formatLink(formatted_body)
+            ;[authorMatrixId, formatted_body, message] =
+              await getFromAttachement(
+                formatted_body,
+                rcMessage.attachments,
+                matrixMessage
+              )
+            const new_body: string = `> <${authorMatrixId}> ${message}`
+            const form_body: string = `<mx-reply><blockquote><a href=\"https://matrix.to/#/${room_id}/${messageMatrixId}?via=${domain}\">In reply to</a> <a href=\"https://matrix.to/#/${authorMatrixId}\">${authorMatrixId}</a><br>${message}</blockquote></mx-reply>`
+            const replacedStr: string = matrixMessage.body.replace(
+              regexMessageId,
+              new_body
+            )
+            const replacedStrForm: string = formatted_body.replace(
+              regexMessageId,
+              form_body
+            )
+            matrixMessage.body = replacedStr
+            formatted_body = replacedStrForm
+            matrixMessage.formatted_body = formatted_body
+            matrixMessage.format = `org.matrix.custom.html`
+          }
+        }
       }
     }
   }

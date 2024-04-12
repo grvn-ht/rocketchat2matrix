@@ -3,9 +3,11 @@ import { Entity, entities } from '../Entities'
 import { IdMapping } from '../entity/IdMapping'
 import { Membership } from '../entity/Membership'
 
+const dbPath = process.argv[3]
+
 const AppDataSource = new DataSource({
   type: 'sqlite',
-  database: process.env.DATABASE || 'db.sqlite',
+  database: process.env.DATABASE || dbPath, //'db.sqlite',
   entities: [IdMapping, Membership],
   synchronize: true,
   logging: false,

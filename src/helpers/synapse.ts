@@ -77,3 +77,25 @@ export async function getMatrixMembers(
     ).data.joined
   )
 }
+
+/**
+ * Return domain name
+ * @param nothing
+ * @returns domain name
+ */
+export function getDomainName(): string {
+  //let domain: string = ''
+  //const regexDomain: RegExp = /http:\/\/([^/]+)/
+  //if (process.env.SYNAPSE_URL) {
+  //  const matchh: RegExpExecArray | null = regexDomain.exec(
+  //    process.env.SYNAPSE_URL
+  //  )
+  //  if (matchh && matchh[1]) {
+  //    domain = matchh[1]
+  //    log.warn(domain)
+  //  } else {
+  //    log.warn('No env SYNAPSE_URL provided')
+  //  }
+  //}
+  return 'message-bus.skilld.cloud'
+}
