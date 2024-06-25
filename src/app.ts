@@ -11,6 +11,7 @@ import { handle as handleMessage } from './handlers/messages'
 import { handlePinnedMessages } from './handlers/pinnedMessages'
 import { handle as handleRoom } from './handlers/rooms'
 import { handle as handleUser } from './handlers/users'
+import { handle as handleEmailNotif } from './handlers/emailAndNotif'
 import log from './helpers/logger'
 import { initStorage } from './helpers/storage'
 import { whoami } from './helpers/synapse'
@@ -55,14 +56,16 @@ async function main() {
     await loadRcExport(Entity.Users)
     log.info('Parsing rooms')
     await loadRcExport(Entity.Rooms)
-    log.info('Parsing messages')
-    await loadRcExport(Entity.Messages)
+    log.info('Setting email in user account and an email pusher')
+    await handleEmailNotif(Entity.Users)
+    //log.info('Parsing messages')
+    //await loadRcExport(Entity.Messages)
     log.info('Setting direct chats to be displayed as such for each user')
     await handleDirectChats()
-    log.info('Setting pinned messages in rooms')
-    await handlePinnedMessages()
-    log.info('Checking room memberships')
-    await handleRoomMemberships()
+    //log.info('Setting pinned messages in rooms')
+    //await handlePinnedMessages()
+    //log.info('Checking room memberships')
+    //await handleRoomMemberships()
 
     log.info('Done.')
   } catch (error) {
