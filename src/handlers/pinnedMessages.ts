@@ -17,7 +17,9 @@ export type PinnedMessages = { [key: string]: string[] }
  */
 export async function getPinnedMessages(): Promise<PinnedMessages> {
   const pinnedMessages: PinnedMessages = {}
-  const rl = new lineByLine(`./inputs/${entities.messages.filename}`)
+  const filePath = process.argv[2] // The first argument after the script name
+  const rl = new lineByLine(`./${filePath}`)
+  //const rl = new lineByLine(`./inputs/${entities.messages.filename}`)
   let line: false | Buffer
   while ((line = rl.next())) {
     const message: RcMessage = JSON.parse(line.toString())
